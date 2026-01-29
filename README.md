@@ -48,6 +48,7 @@ Aggregated Result
 3. **Security Layer**: JWT propagation, prompt injection detection, rate limiting, RBAC
 4. **Observability**: OpenTelemetry integration with Aspire Dashboard tracing
 5. **Resilience**: Polly v8 pipelines (circuit breaker, retry, timeout)
+6. **Minimal APIs**: High-performance .NET 10 endpoints organized by service feature
 
 ---
 
@@ -57,15 +58,15 @@ Aggregated Result
 ```
 Client JWT
   ↓
-Gateway (validates JWT)
+Gateway (validates JWT via RequireAuthorization)
   ↓
-IntentController (extracts user ID from claims)
+IntentEndpoints.ExecuteIntent (extracts user ID from claims)
   ↓
 ReasoningEngine (holds JWT in context)
   ↓
 TokenPropagationHandler (injects into HttpRequestMessage)
   ↓
-Downstream Service (receives request with Authorization header)
+Downstream Service Endpoints (receives request with Authorization header)
 ```
 
 ### Guardrail Layers
@@ -103,9 +104,11 @@ semantic-api-gateway/
 │   ├── appsettings.json
 │   ├── appsettings.Development.json
 │   │
-│   ├── Controllers/
-│   │   ├── IntentController.cs                    # POST /execute intent endpoint
-│   │   └── DiagnosticsController.cs               # Service discovery & plugin status
+│   ├── Endpoints/
+│   │   └── IntentEndpoints.cs                    # POST /api/intent endpoints (execute, plan)
+│   │
+│   ├── Models/
+│   │   └── IntentDtos.cs                         # DTOs (ExecuteIntentRequest, ExecuteIntentResponse, etc.)
 │   │
 │   ├── Features/
 │   │   ├── PluginOrchestration/
@@ -152,26 +155,26 @@ semantic-api-gateway/
 ├── SemanticApiGateway.MockServices/               # Reference Mock Services
 │   ├── OrderService/
 │   │   ├── Program.cs
-│   │   ├── Controllers/
-│   │   │   └── OrdersController.cs
+│   │   ├── Endpoints/
+│   │   │   └── OrderEndpoints.cs                 # GET, POST, PUT, DELETE /api/orders endpoints
 │   │   ├── Models/
-│   │   │   └── Order.cs
+│   │   │   └── Order.cs                          # Order model + CreateOrderRequest DTO
 │   │   └── OrderService.csproj
 │   │
 │   ├── InventoryService/
 │   │   ├── Program.cs
-│   │   ├── Controllers/
-│   │   │   └── InventoryController.cs
+│   │   ├── Endpoints/
+│   │   │   └── InventoryEndpoints.cs             # GET, POST, PUT /api/inventory endpoints
 │   │   ├── Models/
-│   │   │   └── InventoryItem.cs
+│   │   │   └── InventoryItem.cs                  # InventoryItem + Request DTOs
 │   │   └── InventoryService.csproj
 │   │
 │   └── UserService/
 │       ├── Program.cs
-│       ├── Controllers/
-│       │   └── UsersController.cs
+│       ├── Endpoints/
+│       │   └── UserEndpoints.cs                  # GET, POST, PUT, DELETE /api/users endpoints
 │       ├── Models/
-│       │   └── User.cs
+│       │   └── User.cs                           # User model + Request DTOs
 │       └── UserService.csproj
 │
 ├── SemanticApiGateway.Tests/                      # Unit & Integration Tests
