@@ -410,6 +410,9 @@ FodyWeavers.xsd
 # Built Visual Studio Code Extensions
 *.vsix
 
+# JetBrains IDEs (IntelliJ IDEA, etc.)
+.idea/
+
 # Windows Installer files from build outputs
 *.cab
 *.msi

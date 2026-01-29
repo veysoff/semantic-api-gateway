@@ -1,6 +1,6 @@
 using Microsoft.SemanticKernel;
 using Microsoft.OpenApi.Readers;
-using System.Text.Json;
+using Microsoft.OpenApi.Models;
 
 namespace SemanticApiGateway.Gateway.Features.PluginOrchestration;
 
@@ -44,13 +44,21 @@ public class OpenApiPluginLoader : IOpenApiPluginLoader
             }
 
             // Parse the OpenAPI specification
-            var reader = new OpenApiStringReader();
-            var parsedDocument = reader.Read(openApiDocument, out var diagnostic);
-
-            if (diagnostic.Errors.Count > 0)
+            OpenApiDocument? parsedDocument = null;
+            try
             {
-                _logger.LogWarning("OpenAPI parsing errors for {ServiceName}: {Errors}",
-                    serviceName, string.Join(", ", diagnostic.Errors.Select(e => e.Message)));
+                var reader = new OpenApiStringReader();
+                parsedDocument = reader.Read(openApiDocument, out var diagnostic);
+
+                if (diagnostic.Errors.Count > 0)
+                {
+                    _logger.LogWarning("OpenAPI parsing errors for {ServiceName}: {ErrorCount}",
+                        serviceName, diagnostic.Errors.Count);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse OpenAPI document for {ServiceName}", serviceName);
             }
 
             // Convert OpenAPI paths to kernel functions
@@ -58,17 +66,18 @@ public class OpenApiPluginLoader : IOpenApiPluginLoader
 
             if (parsedDocument?.Paths != null)
             {
-                foreach (var path in parsedDocument.Paths)
+                foreach (var pathItem in parsedDocument.Paths)
                 {
-                    foreach (var operation in path.Value.Operations.Values)
+                    string pathKey = pathItem.Key;
+                    OpenApiPathItem pathValue = pathItem.Value;
+
+                    foreach (var operation in pathValue.Operations)
                     {
-                        if (operation != null)
+                        OpenApiOperation operationDetails = operation.Value;
+                        var function = CreateKernelFunctionFromOperation(serviceName, pathKey, operationDetails);
+                        if (function != null)
                         {
-                            var function = CreateKernelFunctionFromOperation(serviceName, path.Key, operation);
-                            if (function != null)
-                            {
-                                functions.Add(function);
-                            }
+                            functions.Add(function);
                         }
                     }
                 }
@@ -132,8 +141,8 @@ public class OpenApiPluginLoader : IOpenApiPluginLoader
     /// </summary>
     private KernelFunction? CreateKernelFunctionFromOperation(
         string serviceName,
-        string path,
-        Microsoft.OpenApi.Models.OpenApiOperation operation)
+        string pathKey,
+        OpenApiOperation operation)
     {
         try
         {
@@ -141,22 +150,24 @@ public class OpenApiPluginLoader : IOpenApiPluginLoader
                 return null;
 
             var functionName = $"{serviceName}_{operation.OperationId}";
-            var description = operation.Summary ?? operation.Description ?? "No description provided";
+            var finalDescription = !string.IsNullOrEmpty(operation.Summary) ? operation.Summary :
+                                   (!string.IsNullOrEmpty(operation.Description) ? operation.Description : "No description provided");
 
-            // For now, create a placeholder function that would be invoked
-            // In production, this would create proper function signatures with parameter binding
+            // Create a placeholder function that would be invoked
+            // In production, this would create proper function signatures with parameter binding from operation.Parameters
+            var method = (string input) => Task.FromResult($"Called {functionName} with input: {input}");
             var function = KernelFunctionFactory.CreateFromMethod(
-                method: (string input) => Task.FromResult($"Called {functionName} with input: {input}"),
+                method: method,
                 functionName: functionName,
-                description: description
+                description: finalDescription
             );
 
             return function;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to create kernel function for operation {OperationId}",
-                operation.OperationId);
+            _logger.LogWarning(ex, "Failed to create kernel function from OpenAPI operation {OperationId} at {PathKey}",
+                operation.OperationId, pathKey);
             return null;
         }
     }

@@ -19,15 +19,7 @@ try
 
     // Add services
     builder.Services.AddEndpointsApiExplorer();
-    builder.Services.AddSwaggerGen(c =>
-    {
-        c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
-        {
-            Title = "User Service API",
-            Version = "v1",
-            Description = "Microservice for managing users"
-        });
-    });
+    builder.Services.AddSwaggerGen();
     builder.Services.AddHealthChecks();
 
     // Add Authentication
