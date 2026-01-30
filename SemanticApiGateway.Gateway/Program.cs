@@ -8,7 +8,6 @@ using SemanticApiGateway.Gateway.Features.Reasoning;
 using SemanticApiGateway.Gateway.Features.Security;
 using SemanticApiGateway.Gateway.Features.Observability;
 using SemanticApiGateway.Gateway.Endpoints;
-using System.IdentityModel.Tokens.Jwt;
 using OpenTelemetry.Trace;
 using System.Text;
 

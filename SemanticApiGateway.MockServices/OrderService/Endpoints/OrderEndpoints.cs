@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using OrderService.Models;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace OrderService.Endpoints;
@@ -13,38 +12,38 @@ public static class OrderEndpoints
     {
         SeedOrders();
 
-        var group = endpoints.MapGroup("/api/orders")
+        var group = endpoints.MapGroup(prefix: "/api/orders")
             .RequireAuthorization()
-            .WithTags("Orders");
+            .WithTags(tags: "Orders");
 
-        group.MapGet("/{id}", GetOrder)
-            .WithName("GetOrder")
-            .Produces<Order>(200)
-            .Produces(404)
-            .Produces(403);
+        group.MapGet(pattern: "/{id}", handler: GetOrder)
+            .WithName(endpointName: "GetOrder")
+            .Produces<Order>(statusCode: 200)
+            .Produces(statusCode: 404)
+            .Produces(statusCode: 403);
 
-        group.MapGet("/user/{userId}", GetUserOrders)
-            .WithName("GetUserOrders")
-            .Produces<List<Order>>(200)
-            .Produces(403);
+        group.MapGet(pattern: "/user/{userId}", handler: GetUserOrders)
+            .WithName(endpointName: "GetUserOrders")
+            .Produces<List<Order>>(statusCode: 200)
+            .Produces(statusCode: 403);
 
-        group.MapPost("", CreateOrder)
-            .WithName("CreateOrder")
-            .Produces<Order>(201)
-            .Produces<ProblemDetails>(400)
-            .Produces(403);
+        group.MapPost(pattern: "", handler: CreateOrder)
+            .WithName(endpointName: "CreateOrder")
+            .Produces<Order>(statusCode: 201)
+            .Produces<ProblemDetails>(statusCode: 400)
+            .Produces(statusCode: 403);
 
-        group.MapPut("/{id}", UpdateOrder)
-            .WithName("UpdateOrder")
-            .Produces<Order>(200)
-            .Produces(404)
-            .Produces(403);
+        group.MapPut(pattern: "/{id}", handler: UpdateOrder)
+            .WithName(endpointName: "UpdateOrder")
+            .Produces<Order>(statusCode: 200)
+            .Produces(statusCode: 404)
+            .Produces(statusCode: 403);
 
-        group.MapDelete("/{id}", DeleteOrder)
-            .WithName("DeleteOrder")
-            .Produces(204)
-            .Produces(404)
-            .Produces(403);
+        group.MapDelete(pattern: "/{id}", handler: DeleteOrder)
+            .WithName(endpointName: "DeleteOrder")
+            .Produces(statusCode: 204)
+            .Produces(statusCode: 404)
+            .Produces(statusCode: 403);
 
         return endpoints;
     }

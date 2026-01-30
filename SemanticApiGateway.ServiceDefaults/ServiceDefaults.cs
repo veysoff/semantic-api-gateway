@@ -1,6 +1,4 @@
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 
@@ -43,7 +41,7 @@ public static class ServiceDefaults
 
         // Add service discovery and HTTP client defaults
         // Note: Service discovery is configured in the Aspire AppHost
-        services.ConfigureHttpClientDefaults(http =>
+        services.ConfigureHttpClientDefaults(_ =>
         {
             // HTTP client default configuration
             // Service discovery routing will be handled at the Aspire orchestration layer

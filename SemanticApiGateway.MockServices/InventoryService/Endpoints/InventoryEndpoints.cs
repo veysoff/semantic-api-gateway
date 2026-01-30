@@ -1,5 +1,4 @@
 using InventoryService.Models;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace InventoryService.Endpoints;
@@ -12,40 +11,40 @@ public static class InventoryEndpoints
     {
         SeedInventory();
 
-        var group = endpoints.MapGroup("/api/inventory")
+        var group = endpoints.MapGroup(prefix: "/api/inventory")
             .RequireAuthorization()
-            .WithTags("Inventory");
+            .WithTags(tags: "Inventory");
 
-        group.MapGet("/{productId}", GetInventory)
-            .WithName("GetInventory")
-            .Produces<InventoryItem>(200)
-            .Produces(404);
+        group.MapGet(pattern: "/{productId}", handler: GetInventory)
+            .WithName(endpointName: "GetInventory")
+            .Produces<InventoryItem>(statusCode: 200)
+            .Produces(statusCode: 404);
 
-        group.MapGet("", GetAllInventory)
-            .WithName("GetAllInventory")
-            .Produces<List<InventoryItem>>(200);
+        group.MapGet(pattern: "", handler: GetAllInventory)
+            .WithName(endpointName: "GetAllInventory")
+            .Produces<List<InventoryItem>>(statusCode: 200);
 
-        group.MapPost("/{productId}/reserve", ReserveInventory)
-            .WithName("ReserveInventory")
-            .Produces(200)
-            .Produces<ProblemDetails>(400)
-            .Produces(404);
+        group.MapPost(pattern: "/{productId}/reserve", handler: ReserveInventory)
+            .WithName(endpointName: "ReserveInventory")
+            .Produces(statusCode: 200)
+            .Produces<ProblemDetails>(statusCode: 400)
+            .Produces(statusCode: 404);
 
-        group.MapPost("/{productId}/release", ReleaseInventory)
-            .WithName("ReleaseInventory")
-            .Produces<InventoryItem>(200)
-            .Produces<ProblemDetails>(400)
-            .Produces(404);
+        group.MapPost(pattern: "/{productId}/release", handler: ReleaseInventory)
+            .WithName(endpointName: "ReleaseInventory")
+            .Produces<InventoryItem>(statusCode: 200)
+            .Produces<ProblemDetails>(statusCode: 400)
+            .Produces(statusCode: 404);
 
-        group.MapPut("/{productId}", UpdateInventory)
-            .WithName("UpdateInventory")
-            .Produces<InventoryItem>(200)
-            .Produces(404);
+        group.MapPut(pattern: "/{productId}", handler: UpdateInventory)
+            .WithName(endpointName: "UpdateInventory")
+            .Produces<InventoryItem>(statusCode: 200)
+            .Produces(statusCode: 404);
 
-        group.MapGet("/check-stock/{productId}/{quantity}", CheckStock)
-            .WithName("CheckStock")
-            .Produces(200)
-            .Produces(404);
+        group.MapGet(pattern: "/check-stock/{productId}/{quantity}", handler: CheckStock)
+            .WithName(endpointName: "CheckStock")
+            .Produces(statusCode: 200)
+            .Produces(statusCode: 404);
 
         return endpoints;
     }

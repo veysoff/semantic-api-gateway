@@ -1,5 +1,3 @@
-using Aspire.Hosting;
-
 var builder = DistributedApplication.CreateBuilder(args);
 
 // Register OrderService mock microservice
@@ -18,7 +16,7 @@ var userService = builder
     .WithHttpEndpoint(port: 5300);
 
 // Register the semantic API gateway with service discovery environment variables
-var gateway = builder
+builder
     .AddProject("gateway", @"..\SemanticApiGateway.Gateway\SemanticApiGateway.Gateway.csproj")
     .WithHttpEndpoint(port: 5000)
     .WithEnvironment("ORDER_SERVICE_URL", () => orderService.GetEndpoint("http").Url)

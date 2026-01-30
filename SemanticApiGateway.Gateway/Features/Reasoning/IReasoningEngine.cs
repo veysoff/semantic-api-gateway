@@ -1,6 +1,6 @@
 namespace SemanticApiGateway.Gateway.Features.Reasoning;
 
-using SemanticApiGateway.Gateway.Models;
+using Models;
 
 /// <summary>
 /// Orchestrates multi-step API calls based on natural language intent

@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using UserService.Models;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace UserService.Endpoints;
@@ -13,59 +12,59 @@ public static class UserEndpoints
     {
         SeedUsers();
 
-        var group = endpoints.MapGroup("/api/users")
-            .WithTags("Users");
+        var group = endpoints.MapGroup(prefix: "/api/users")
+            .WithTags(tags: "Users");
 
-        group.MapGet("/{id}", GetUser)
+        group.MapGet(pattern: "/{id}", handler: GetUser)
             .RequireAuthorization()
-            .WithName("GetUser")
-            .Produces<User>(200)
-            .Produces(404)
-            .Produces(403);
+            .WithName(endpointName: "GetUser")
+            .Produces<User>(statusCode: 200)
+            .Produces(statusCode: 404)
+            .Produces(statusCode: 403);
 
-        group.MapGet("", GetAllUsers)
-            .RequireAuthorization(policy => policy.RequireRole("Admin"))
-            .WithName("GetAllUsers")
-            .Produces<List<User>>(200);
+        group.MapGet(pattern: "", handler: GetAllUsers)
+            .RequireAuthorization(configurePolicy: policy => policy.RequireRole(roles: "Admin"))
+            .WithName(endpointName: "GetAllUsers")
+            .Produces<List<User>>(statusCode: 200);
 
-        group.MapGet("/email/{email}", GetUserByEmail)
-            .RequireAuthorization(policy => policy.RequireRole("Admin"))
-            .WithName("GetUserByEmail")
-            .Produces<User>(200)
-            .Produces(404);
+        group.MapGet(pattern: "/email/{email}", handler: GetUserByEmail)
+            .RequireAuthorization(configurePolicy: policy => policy.RequireRole(roles: "Admin"))
+            .WithName(endpointName: "GetUserByEmail")
+            .Produces<User>(statusCode: 200)
+            .Produces(statusCode: 404);
 
-        group.MapPost("", CreateUser)
-            .RequireAuthorization(policy => policy.RequireRole("Admin"))
-            .WithName("CreateUser")
-            .Produces<User>(201)
-            .Produces<ProblemDetails>(400);
+        group.MapPost(pattern: "", handler: CreateUser)
+            .RequireAuthorization(configurePolicy: policy => policy.RequireRole(roles: "Admin"))
+            .WithName(endpointName: "CreateUser")
+            .Produces<User>(statusCode: 201)
+            .Produces<ProblemDetails>(statusCode: 400);
 
-        group.MapPut("/{id}", UpdateUser)
+        group.MapPut(pattern: "/{id}", handler: UpdateUser)
             .RequireAuthorization()
-            .WithName("UpdateUser")
-            .Produces<User>(200)
-            .Produces(404)
-            .Produces(403);
+            .WithName(endpointName: "UpdateUser")
+            .Produces<User>(statusCode: 200)
+            .Produces(statusCode: 404)
+            .Produces(statusCode: 403);
 
-        group.MapDelete("/{id}", DeleteUser)
-            .RequireAuthorization(policy => policy.RequireRole("Admin"))
-            .WithName("DeleteUser")
-            .Produces(204)
-            .Produces(404);
+        group.MapDelete(pattern: "/{id}", handler: DeleteUser)
+            .RequireAuthorization(configurePolicy: policy => policy.RequireRole(roles: "Admin"))
+            .WithName(endpointName: "DeleteUser")
+            .Produces(statusCode: 204)
+            .Produces(statusCode: 404);
 
-        group.MapPost("/{id}/login", LoginUser)
+        group.MapPost(pattern: "/{id}/login", handler: LoginUser)
             .AllowAnonymous()
-            .WithName("LoginUser")
-            .Produces(200)
-            .Produces(404)
-            .Produces<ProblemDetails>(400);
+            .WithName(endpointName: "LoginUser")
+            .Produces(statusCode: 200)
+            .Produces(statusCode: 404)
+            .Produces<ProblemDetails>(statusCode: 400);
 
-        group.MapGet("/{id}/profile", GetUserProfile)
+        group.MapGet(pattern: "/{id}/profile", handler: GetUserProfile)
             .RequireAuthorization()
-            .WithName("GetUserProfile")
-            .Produces(200)
-            .Produces(404)
-            .Produces(403);
+            .WithName(endpointName: "GetUserProfile")
+            .Produces(statusCode: 200)
+            .Produces(statusCode: 404)
+            .Produces(statusCode: 403);
 
         return endpoints;
     }

@@ -12,24 +12,24 @@ public static class IntentEndpoints
 {
     public static IEndpointRouteBuilder MapIntentEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var group = endpoints.MapGroup("/api/intent")
-            .RequireAuthorization(JwtBearerDefaults.AuthenticationScheme)
-            .WithTags("Intent");
+        var group = endpoints.MapGroup(prefix: "/api/intent")
+            .RequireAuthorization(policyNames: JwtBearerDefaults.AuthenticationScheme)
+            .WithTags(tags: "Intent");
 
-        group.MapPost("/execute", ExecuteIntent)
-            .WithName("ExecuteIntent")
-            .Produces<ExecuteIntentResponse>(200)
-            .Produces<ErrorResponse>(400)
-            .Produces<ErrorResponse>(401)
-            .Produces<ErrorResponse>(429)
-            .Produces<ErrorResponse>(500);
+        group.MapPost(pattern: "/execute", handler: ExecuteIntent)
+            .WithName(endpointName: "ExecuteIntent")
+            .Produces<ExecuteIntentResponse>(statusCode: 200)
+            .Produces<ErrorResponse>(statusCode: 400)
+            .Produces<ErrorResponse>(statusCode: 401)
+            .Produces<ErrorResponse>(statusCode: 429)
+            .Produces<ErrorResponse>(statusCode: 500);
 
-        group.MapPost("/plan", PlanIntent)
-            .WithName("PlanIntent")
-            .Produces<PlanIntentResponse>(200)
-            .Produces<ErrorResponse>(400)
-            .Produces<ErrorResponse>(401)
-            .Produces<ErrorResponse>(500);
+        group.MapPost(pattern: "/plan", handler: PlanIntent)
+            .WithName(endpointName: "PlanIntent")
+            .Produces<PlanIntentResponse>(statusCode: 200)
+            .Produces<ErrorResponse>(statusCode: 400)
+            .Produces<ErrorResponse>(statusCode: 401)
+            .Produces<ErrorResponse>(statusCode: 500);
 
         return endpoints;
     }
