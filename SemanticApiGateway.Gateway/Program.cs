@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.SemanticKernel;
 using Serilog;
+using SemanticApiGateway.Gateway.Configuration;
 using SemanticApiGateway.Gateway.Features.PluginOrchestration;
 using SemanticApiGateway.Gateway.Features.Reasoning;
 using SemanticApiGateway.Gateway.Features.Security;
@@ -59,6 +60,10 @@ try
             });
         }
     });
+
+    // Register Resilience Configuration from appsettings
+    builder.Services.Configure<ResilienceConfiguration>(
+        builder.Configuration.GetSection("Resilience"));
 
     // Register Authentication with proper JWT validation
     builder.Services.AddAuthentication(options =>
@@ -137,6 +142,7 @@ try
     builder.Services.AddSingleton<IGatewayActivitySource, GatewayActivitySource>();
     builder.Services.AddSingleton<IPluginRegistry, PluginRegistry>();
     builder.Services.AddScoped<IOpenApiPluginLoader, OpenApiPluginLoader>();
+    builder.Services.AddScoped<VariableResolver>();
     builder.Services.AddScoped<IReasoningEngine, StepwisePlannerEngine>();
     builder.Services.AddScoped<ITokenPropagationService, TokenPropagationService>();
     builder.Services.AddScoped<ISemanticGuardrailService, SemanticGuardrailService>();

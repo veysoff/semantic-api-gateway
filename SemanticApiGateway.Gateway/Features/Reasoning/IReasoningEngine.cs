@@ -1,5 +1,7 @@
 namespace SemanticApiGateway.Gateway.Features.Reasoning;
 
+using SemanticApiGateway.Gateway.Models;
+
 /// <summary>
 /// Orchestrates multi-step API calls based on natural language intent
 /// Plans execution steps and pipes data between microservices
@@ -47,6 +49,11 @@ public class ExecutionStep
     public Dictionary<string, object> Parameters { get; set; } = new();
     public string? DataSource { get; set; } // Reference to previous step output for data piping
     public string Description { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Fallback value to use if this step fails and allows partial results.
+    /// </summary>
+    public object? FallbackValue { get; set; }
 }
 
 /// <summary>
@@ -76,4 +83,41 @@ public class StepResult
     public object? Result { get; set; }
     public string? ErrorMessage { get; set; }
     public TimeSpan Duration { get; set; }
+
+    /// <summary>
+    /// Structured error information if the step failed.
+    /// Contains retry history, categorization, and recovery guidance.
+    /// </summary>
+    public StepError? Error { get; set; }
+
+    /// <summary>
+    /// HTTP status code if the failure was from an API call.
+    /// </summary>
+    public int? HttpStatusCode { get; set; }
+
+    /// <summary>
+    /// Error category (Transient, Permanent, or Unknown).
+    /// Helpful for retry logic and recovery decisions.
+    /// </summary>
+    public ErrorCategory ErrorCategory { get; set; } = ErrorCategory.Unknown;
+
+    /// <summary>
+    /// Number of retry attempts made for this step.
+    /// </summary>
+    public int RetryCount { get; set; }
+
+    /// <summary>
+    /// Total time spent on retries for this step.
+    /// </summary>
+    public TimeSpan TotalRetryDuration { get; set; }
+
+    /// <summary>
+    /// Reasons for each retry attempt.
+    /// </summary>
+    public List<string> RetryReasons { get; set; } = new();
+
+    /// <summary>
+    /// Whether a fallback value was used to recover from failure.
+    /// </summary>
+    public bool UsedFallback { get; set; }
 }
