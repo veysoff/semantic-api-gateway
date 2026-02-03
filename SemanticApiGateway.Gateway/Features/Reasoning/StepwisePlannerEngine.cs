@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 using Polly;
 using SemanticApiGateway.Gateway.Configuration;
+using SemanticApiGateway.Gateway.Features.Observability;
 using SemanticApiGateway.Gateway.Models;
 
 namespace SemanticApiGateway.Gateway.Features.Reasoning;
@@ -9,6 +10,7 @@ namespace SemanticApiGateway.Gateway.Features.Reasoning;
 /// <summary>
 /// Orchestrates multi-step execution plans using Semantic Kernel's stepwise planner
 /// Pipes data between microservice calls and aggregates results with resilience patterns
+/// Includes distributed tracing with OpenTelemetry for observability
 /// </summary>
 public class StepwisePlannerEngine : IReasoningEngine
 {
@@ -17,17 +19,20 @@ public class StepwisePlannerEngine : IReasoningEngine
     private readonly VariableResolver _variableResolver;
     private readonly IAsyncPolicy<ExecutionResult> _executionPolicy;
     private readonly ResilienceConfiguration _resilienceConfig;
+    private readonly IGatewayActivitySource _activitySource;
 
     public StepwisePlannerEngine(
         Kernel kernel,
         ILogger<StepwisePlannerEngine> logger,
         VariableResolver variableResolver,
-        IOptions<ResilienceConfiguration> resilienceOptions)
+        IOptions<ResilienceConfiguration> resilienceOptions,
+        IGatewayActivitySource activitySource)
     {
         _kernel = kernel ?? throw new ArgumentNullException(nameof(kernel));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _variableResolver = variableResolver ?? throw new ArgumentNullException(nameof(variableResolver));
         _resilienceConfig = resilienceOptions?.Value ?? throw new ArgumentNullException(nameof(resilienceOptions));
+        _activitySource = activitySource ?? throw new ArgumentNullException(nameof(activitySource));
 
         // Configure resilience policy for the overall execution
         _executionPolicy = Policy<ExecutionResult>
@@ -111,6 +116,7 @@ public class StepwisePlannerEngine : IReasoningEngine
 
     /// <summary>
     /// Executes multiple steps sequentially with data piping and error handling
+    /// Each step creates a child activity span for distributed tracing
     /// </summary>
     private async Task<List<StepResult>> ExecuteStepsAsync(
         List<ExecutionStep> steps,
@@ -121,27 +127,70 @@ public class StepwisePlannerEngine : IReasoningEngine
 
         foreach (var step in steps.OrderBy(s => s.Order))
         {
+            var stepStartTime = DateTime.UtcNow;
+
+            // Create activity span for this step
+            using var stepActivity = _activitySource.StartStepExecutionSpan(step.Order, step.ServiceName, step.FunctionName);
+
             try
             {
                 // Resolve parameters using previous step results
+                using var resolveActivity = _activitySource.StartVariableResolutionSpan($"Step{step.Order}Parameters");
+                var resolveStartTime = DateTime.UtcNow;
+
                 var resolvedParameters = _variableResolver.ResolveParameters(step.Parameters, executionContext);
+                var resolveDuration = (long)(DateTime.UtcNow - resolveStartTime).TotalMilliseconds;
+
+                _activitySource.RecordVariableMetrics(
+                    resolveActivity,
+                    success: true,
+                    durationMs: resolveDuration,
+                    resolvedValue: "parameters"
+                );
 
                 var stepResult = await ExecuteStepAsync(step, resolvedParameters, cancellationToken);
                 results.Add(stepResult);
+
+                // Record step metrics to activity
+                var stepDuration = (long)(DateTime.UtcNow - stepStartTime).TotalMilliseconds;
+                _activitySource.RecordStepMetrics(
+                    stepActivity,
+                    success: stepResult.Success,
+                    durationMs: stepDuration,
+                    retryCount: stepResult.RetryCount,
+                    errorMessage: stepResult.ErrorMessage
+                );
 
                 // Add to context for next step
                 executionContext.StepResults.Add(stepResult);
 
                 if (!stepResult.Success)
                 {
-                    _logger.LogWarning("Step {Order} ({Function}) failed: {Error} | Retries: {RetryCount} | Category: {ErrorCategory}",
-                        step.Order, step.FunctionName, stepResult.ErrorMessage, stepResult.RetryCount, stepResult.ErrorCategory);
+                    _logger.LogWarning("Step {Order} ({Function}) failed: {Error} | Retries: {RetryCount} | Category: {ErrorCategory} | Duration: {DurationMs}ms",
+                        step.Order, step.FunctionName, stepResult.ErrorMessage, stepResult.RetryCount,
+                        stepResult.ErrorCategory, stepDuration);
+                }
+                else
+                {
+                    _logger.LogInformation("Step {Order} ({Function}) completed in {DurationMs}ms",
+                        step.Order, step.FunctionName, stepDuration);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error executing step {Order} ({Function})",
-                    step.Order, step.FunctionName);
+                var stepDuration = (long)(DateTime.UtcNow - stepStartTime).TotalMilliseconds;
+
+                _logger.LogError(ex, "Unexpected error executing step {Order} ({Function}) after {DurationMs}ms",
+                    step.Order, step.FunctionName, stepDuration);
+
+                // Record error metrics to activity
+                _activitySource.RecordStepMetrics(
+                    stepActivity,
+                    success: false,
+                    durationMs: stepDuration,
+                    retryCount: 0,
+                    errorMessage: ex.Message
+                );
 
                 results.Add(new StepResult
                 {
@@ -150,7 +199,8 @@ public class StepwisePlannerEngine : IReasoningEngine
                     FunctionName = step.FunctionName,
                     Success = false,
                     ErrorMessage = $"Execution error: {ex.Message}",
-                    ErrorCategory = ErrorCategory.Unknown
+                    ErrorCategory = ErrorCategory.Unknown,
+                    Duration = TimeSpan.FromMilliseconds(stepDuration)
                 });
             }
         }

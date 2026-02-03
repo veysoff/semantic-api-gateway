@@ -120,6 +120,112 @@ public class GatewayActivitySource : IGatewayActivitySource
     }
 
     /// <summary>
+    /// Create a child span for step execution within an intent
+    /// </summary>
+    public Activity? StartStepExecutionSpan(int stepOrder, string serviceName, string functionName)
+    {
+        try
+        {
+            var activity = _activitySource.StartActivity($"ExecuteStep_{stepOrder}");
+            if (activity != null)
+            {
+                activity.SetTag("step.order", stepOrder);
+                activity.SetTag("step.service", serviceName);
+                activity.SetTag("step.function", functionName);
+                activity.SetTag("step.timestamp", DateTime.UtcNow);
+            }
+            return activity;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create step execution span");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Record step execution metrics and results
+    /// </summary>
+    public void RecordStepMetrics(Activity? activity, bool success, long durationMs, int retryCount = 0, string? errorMessage = null)
+    {
+        if (activity == null)
+            return;
+
+        try
+        {
+            activity.SetTag("step.success", success);
+            activity.SetTag("step.duration_ms", durationMs);
+            activity.SetTag("step.retry_count", retryCount);
+
+            if (!success && !string.IsNullOrWhiteSpace(errorMessage))
+            {
+                activity.SetTag("step.error", errorMessage);
+                activity.SetStatus(ActivityStatusCode.Error, errorMessage);
+            }
+            else if (success)
+            {
+                activity.SetStatus(ActivityStatusCode.Ok);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to record step metrics");
+        }
+    }
+
+    /// <summary>
+    /// Create a child span for variable resolution
+    /// </summary>
+    public Activity? StartVariableResolutionSpan(string variablePattern)
+    {
+        try
+        {
+            var activity = _activitySource.StartActivity("ResolveVariable");
+            if (activity != null)
+            {
+                activity.SetTag("variable.pattern", variablePattern);
+                activity.SetTag("variable.timestamp", DateTime.UtcNow);
+            }
+            return activity;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create variable resolution span");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Record variable resolution metrics
+    /// </summary>
+    public void RecordVariableMetrics(Activity? activity, bool success, long durationMs, string? resolvedValue = null, string? errorMessage = null)
+    {
+        if (activity == null)
+            return;
+
+        try
+        {
+            activity.SetTag("variable.success", success);
+            activity.SetTag("variable.duration_ms", durationMs);
+
+            if (success && !string.IsNullOrWhiteSpace(resolvedValue))
+            {
+                activity.SetTag("variable.resolved", "true");
+            }
+
+            if (!success && !string.IsNullOrWhiteSpace(errorMessage))
+            {
+                activity.SetTag("variable.error", errorMessage);
+                activity.SetStatus(ActivityStatusCode.Error, errorMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to record variable metrics");
+        }
+    }
+
+    /// <summary>
     /// Check if a parameter name indicates sensitive data
     /// </summary>
     private bool IsSensitiveParameter(string paramName)
@@ -139,4 +245,8 @@ public interface IGatewayActivitySource
     Activity? StartPluginLoadingSpan(string serviceName, string swaggerUrl);
     Activity? StartFunctionInvocationSpan(string serviceName, string functionName, Dictionary<string, object> parameters);
     Activity? StartSecurityValidationSpan(string userId, string validationType);
+    Activity? StartStepExecutionSpan(int stepOrder, string serviceName, string functionName);
+    void RecordStepMetrics(Activity? activity, bool success, long durationMs, int retryCount = 0, string? errorMessage = null);
+    Activity? StartVariableResolutionSpan(string variablePattern);
+    void RecordVariableMetrics(Activity? activity, bool success, long durationMs, string? resolvedValue = null, string? errorMessage = null);
 }
