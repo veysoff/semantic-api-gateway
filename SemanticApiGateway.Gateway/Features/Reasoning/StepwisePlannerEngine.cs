@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 using Polly;
 using SemanticApiGateway.Gateway.Configuration;
+using SemanticApiGateway.Gateway.Features.Caching;
 using SemanticApiGateway.Gateway.Features.Observability;
 using SemanticApiGateway.Gateway.Models;
 
@@ -20,19 +21,24 @@ public class StepwisePlannerEngine : IReasoningEngine
     private readonly IAsyncPolicy<ExecutionResult> _executionPolicy;
     private readonly ResilienceConfiguration _resilienceConfig;
     private readonly IGatewayActivitySource _activitySource;
+    private readonly ICacheService _cacheService;
+    private const string PlanCachePrefix = "plan:";
+    private const string ResultCachePrefix = "result:";
 
     public StepwisePlannerEngine(
         Kernel kernel,
         ILogger<StepwisePlannerEngine> logger,
         VariableResolver variableResolver,
         IOptions<ResilienceConfiguration> resilienceOptions,
-        IGatewayActivitySource activitySource)
+        IGatewayActivitySource activitySource,
+        ICacheService cacheService)
     {
         _kernel = kernel ?? throw new ArgumentNullException(nameof(kernel));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _variableResolver = variableResolver ?? throw new ArgumentNullException(nameof(variableResolver));
         _resilienceConfig = resilienceOptions?.Value ?? throw new ArgumentNullException(nameof(resilienceOptions));
         _activitySource = activitySource ?? throw new ArgumentNullException(nameof(activitySource));
+        _cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
 
         // Configure resilience policy for the overall execution
         _executionPolicy = Policy<ExecutionResult>
@@ -418,8 +424,18 @@ public class StepwisePlannerEngine : IReasoningEngine
         if (string.IsNullOrWhiteSpace(userId))
             throw new ArgumentNullException(nameof(userId));
 
+        var cacheKey = $"{PlanCachePrefix}{intent.GetHashCode():X}";
+
         try
         {
+            // Check cache first
+            var cachedPlan = await _cacheService.GetAsync<ExecutionPlan>(cacheKey, cancellationToken);
+            if (cachedPlan != null)
+            {
+                _logger.LogDebug("Using cached execution plan for intent: {Intent}", intent);
+                return cachedPlan;
+            }
+
             _logger.LogInformation("Creating execution plan for intent: {Intent}", intent);
 
             // TODO: Implement plan generation
@@ -444,6 +460,9 @@ public class StepwisePlannerEngine : IReasoningEngine
                     }
                 }
             };
+
+            // Cache the plan for 1 hour
+            await _cacheService.SetAsync(cacheKey, plan, TimeSpan.FromHours(1), cancellationToken);
 
             return plan;
         }

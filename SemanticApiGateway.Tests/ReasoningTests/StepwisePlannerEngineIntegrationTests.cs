@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 using Moq;
 using SemanticApiGateway.Gateway.Configuration;
+using SemanticApiGateway.Gateway.Features.Caching;
 using SemanticApiGateway.Gateway.Features.Observability;
 using SemanticApiGateway.Gateway.Features.Reasoning;
 using SemanticApiGateway.Gateway.Models;
@@ -40,12 +41,16 @@ public class StepwisePlannerEngineIntegrationTests
         var mockVarLogger = new Mock<ILogger<VariableResolver>>();
         var variableResolver = new VariableResolver(mockVarLogger.Object);
 
+        var mockCacheLogger = new Mock<ILogger<InMemoryCacheService>>();
+        var cacheService = new InMemoryCacheService(mockCacheLogger.Object);
+
         _engine = new StepwisePlannerEngine(
             kernel,
             _mockLogger.Object,
             variableResolver,
             options,
-            _mockActivitySource.Object
+            _mockActivitySource.Object,
+            cacheService
         );
     }
 

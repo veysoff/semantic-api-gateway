@@ -12,6 +12,8 @@ using SemanticApiGateway.Gateway.Features.ErrorHandling;
 using SemanticApiGateway.Gateway.Features.RateLimiting;
 using SemanticApiGateway.Gateway.Features.SecretManagement;
 using SemanticApiGateway.Gateway.Features.AuditTrail;
+using SemanticApiGateway.Gateway.Features.Caching;
+using SemanticApiGateway.Gateway.Features.LLM;
 using SemanticApiGateway.Gateway.Middleware;
 using SemanticApiGateway.Gateway.Endpoints;
 using OpenTelemetry.Trace;
@@ -125,7 +127,15 @@ try
 
     builder.Services.AddAuthorization();
 
-    // Register Semantic Kernel
+    // Register LLM Providers and Orchestrator
+    builder.Services.AddSingleton<ILLMProvider, OpenAIProvider>();
+    builder.Services.AddSingleton<ILLMProvider, AnthropicProvider>();
+    builder.Services.AddSingleton<ILLMProviderOrchestrator, LLMProviderOrchestrator>();
+
+    // Register Caching Service
+    builder.Services.AddSingleton<ICacheService, InMemoryCacheService>();
+
+    // Register Semantic Kernel (fallback, uses orchestrator in StepwisePlannerEngine)
     builder.Services.AddScoped(sp =>
     {
         var kernelBuilder = Kernel.CreateBuilder()
