@@ -14,6 +14,7 @@ using SemanticApiGateway.Gateway.Features.SecretManagement;
 using SemanticApiGateway.Gateway.Features.AuditTrail;
 using SemanticApiGateway.Gateway.Features.Caching;
 using SemanticApiGateway.Gateway.Features.LLM;
+using SemanticApiGateway.Gateway.Features.Streaming;
 using SemanticApiGateway.Gateway.Middleware;
 using SemanticApiGateway.Gateway.Endpoints;
 using OpenTelemetry.Trace;
@@ -159,6 +160,7 @@ try
     builder.Services.AddScoped<IOpenApiPluginLoader, OpenApiPluginLoader>();
     builder.Services.AddScoped<VariableResolver>();
     builder.Services.AddScoped<IReasoningEngine, StepwisePlannerEngine>();
+    builder.Services.AddScoped<IStreamingExecutionService, StreamingExecutionService>();
     builder.Services.AddScoped<ITokenPropagationService, TokenPropagationService>();
     builder.Services.AddScoped<ISemanticGuardrailService, SemanticGuardrailService>();
     builder.Services.AddScoped<IExceptionHandler, GlobalExceptionHandler>();

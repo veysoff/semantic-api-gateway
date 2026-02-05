@@ -1,6 +1,8 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using SemanticApiGateway.Gateway.Features.Reasoning;
 using SemanticApiGateway.Gateway.Features.Security;
+using SemanticApiGateway.Gateway.Features.Streaming;
 using SemanticApiGateway.Gateway.Models;
 
 namespace SemanticApiGateway.Gateway.Endpoints;
@@ -23,6 +25,12 @@ public static class IntentEndpoints
             .Produces<ErrorResponse>(statusCode: 401)
             .Produces<ErrorResponse>(statusCode: 429)
             .Produces<ErrorResponse>(statusCode: 500);
+
+        group.MapGet(pattern: "/stream/{intent}", handler: StreamIntent)
+            .WithName(endpointName: "StreamIntent")
+            .Produces(statusCode: 200, contentType: "text/event-stream")
+            .Produces<ErrorResponse>(statusCode: 400)
+            .Produces<ErrorResponse>(statusCode: 401);
 
         group.MapPost(pattern: "/plan", handler: PlanIntent)
             .WithName(endpointName: "PlanIntent")
@@ -181,6 +189,64 @@ public static class IntentEndpoints
         catch (Exception ex)
         {
             logger.LogError(ex, "Unexpected error generating plan");
+            return Results.InternalServerError();
+        }
+    }
+
+    /// <summary>
+    /// Stream intent execution results in real-time using Server-Sent Events (SSE)
+    /// </summary>
+    private static async Task<IResult> StreamIntent(
+        string intent,
+        string? userId,
+        IStreamingExecutionService streamingService,
+        ITokenPropagationService tokenPropagationService,
+        ISemanticGuardrailService guardrailService,
+        ILogger<Program> logger,
+        HttpContext httpContext,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(intent))
+        {
+            return Results.BadRequest(new ErrorResponse
+            {
+                Error = "Intent cannot be empty",
+                Details = "Provide a non-empty intent in the URL path"
+            });
+        }
+
+        userId = httpContext.User.FindFirst("sub")?.Value ?? httpContext.User.Identity?.Name ?? "anonymous";
+
+        try
+        {
+            // Check if intent passes guardrails
+            var validationResult = await guardrailService.ValidateIntentAsync(intent, userId);
+            if (!validationResult.IsAllowed)
+            {
+                return Results.BadRequest(new ErrorResponse
+                {
+                    Error = "Intent validation failed",
+                    Details = validationResult.ReasonDenied
+                });
+            }
+
+            // Return SSE stream
+            httpContext.Response.Headers.CacheControl = "no-cache";
+            httpContext.Response.Headers.Connection = "keep-alive";
+            httpContext.Response.ContentType = "text/event-stream";
+
+            await foreach (var evt in streamingService.ExecuteIntentStreamingAsync(intent, userId, cancellationToken))
+            {
+                var sseData = StreamEventFormatter.FormatAsSSE(evt);
+                await httpContext.Response.WriteAsync(sseData, cancellationToken);
+                await httpContext.Response.Body.FlushAsync(cancellationToken);
+            }
+
+            return Results.Ok();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unexpected error streaming intent");
             return Results.InternalServerError();
         }
     }
