@@ -30,10 +30,3 @@ public class StepDto
     public string Description { get; set; } = string.Empty;
     public Dictionary<string, object> Parameters { get; set; } = new();
 }
-
-public class ErrorResponse
-{
-    public string Error { get; set; } = string.Empty;
-    public string? Details { get; set; }
-    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-}

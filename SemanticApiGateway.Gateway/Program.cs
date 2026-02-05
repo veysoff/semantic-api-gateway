@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.SemanticKernel;
 using Serilog;
@@ -7,6 +8,11 @@ using SemanticApiGateway.Gateway.Features.PluginOrchestration;
 using SemanticApiGateway.Gateway.Features.Reasoning;
 using SemanticApiGateway.Gateway.Features.Security;
 using SemanticApiGateway.Gateway.Features.Observability;
+using SemanticApiGateway.Gateway.Features.ErrorHandling;
+using SemanticApiGateway.Gateway.Features.RateLimiting;
+using SemanticApiGateway.Gateway.Features.SecretManagement;
+using SemanticApiGateway.Gateway.Features.AuditTrail;
+using SemanticApiGateway.Gateway.Middleware;
 using SemanticApiGateway.Gateway.Endpoints;
 using OpenTelemetry.Trace;
 using System.Text;
@@ -145,6 +151,25 @@ try
     builder.Services.AddScoped<IReasoningEngine, StepwisePlannerEngine>();
     builder.Services.AddScoped<ITokenPropagationService, TokenPropagationService>();
     builder.Services.AddScoped<ISemanticGuardrailService, SemanticGuardrailService>();
+    builder.Services.AddScoped<IExceptionHandler, GlobalExceptionHandler>();
+    builder.Services.AddSingleton<IErrorRecoveryService, ErrorRecoveryService>();
+    builder.Services.AddSingleton<ICircuitBreakerService, CircuitBreakerService>();
+    builder.Services.AddSingleton<IRateLimitingService, RateLimitingService>();
+    builder.Services.AddSingleton<ISecretRotationService, SecretRotationService>();
+    builder.Services.AddSingleton<IAuditService, InMemoryAuditService>();
+
+    // Register secret provider based on environment
+    if (builder.Environment.IsDevelopment())
+    {
+        builder.Services.AddScoped<ISecretProvider, LocalSecretProvider>();
+        Log.Information("Using LocalSecretProvider for development");
+    }
+    else
+    {
+        builder.Services.AddScoped<ISecretProvider, KeyVaultSecretProvider>();
+        Log.Information("Using KeyVaultSecretProvider for production");
+    }
+
     builder.Services.AddHostedService<PluginRefreshService>();
 
     // Register HttpClient factories
@@ -181,6 +206,15 @@ try
         // Security: Add HSTS header
         app.UseHsts();
     }
+
+    // Global exception handling (must be first in pipeline)
+    app.UseExceptionHandler(_ => { });
+
+    // Audit trail logging
+    app.UseAuditTrail();
+
+    // Rate limiting (before routing to check before handlers)
+    app.UseRateLimiting();
 
     app.UseRouting();
 
