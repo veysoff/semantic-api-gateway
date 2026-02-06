@@ -37,12 +37,25 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
+      - name: Debug - List directory contents
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Contents of root:"
+          ls -la
+          echo ""
+          echo "Looking for .sln files:"
+          find . -name "*.sln" -o -name "*.csproj" | head -20
+          echo ""
+          echo "Git status:"
+          git status
+        timeout-minutes: 5
+
       - name: Restore dependencies
-        run: find . -name "*.sln" && dotnet restore $(find . -name "*.sln" | head -1)
+        run: dotnet restore
         timeout-minutes: 10
 
       - name: Build solution (Release)
-        run: dotnet build $(find . -name "*.sln" | head -1) --no-restore --configuration ${{ env.CONFIGURATION }} --verbosity normal
+        run: dotnet build --no-restore --configuration ${{ env.CONFIGURATION }} --verbosity normal
         timeout-minutes: 15
 
       - name: Run all tests
