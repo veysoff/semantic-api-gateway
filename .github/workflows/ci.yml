@@ -36,11 +36,11 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore SemanticApiGateway.sln
         timeout-minutes: 10
 
       - name: Build solution (Release)
-        run: dotnet build --no-restore --configuration ${{ env.CONFIGURATION }} --verbosity normal
+        run: dotnet build SemanticApiGateway.sln --no-restore --configuration ${{ env.CONFIGURATION }} --verbosity normal
         timeout-minutes: 15
 
       - name: Run all tests
