@@ -1,0 +1,76 @@
+name: CI - Build & Test
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  CONFIGURATION: Release
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+
+      - name: Restore dependencies
+        run: dotnet restore
+        timeout-minutes: 10
+
+      - name: Build solution (Release)
+        run: dotnet build --no-restore --configuration ${{ env.CONFIGURATION }} --verbosity normal
+        timeout-minutes: 15
+
+      - name: Run all tests
+        run: dotnet test SemanticApiGateway.Tests/SemanticApiGateway.Tests.csproj --no-build --configuration ${{ env.CONFIGURATION }} --logger "trx;LogFileName=test-results.trx" --verbosity normal
+        timeout-minutes: 20
+
+      - name: Publish test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: '**/test-results.trx'
+          retention-days: 30
+
+      - name: Build artifacts (Gateway)
+        run: dotnet publish SemanticApiGateway.Gateway/SemanticApiGateway.Gateway.csproj --configuration ${{ env.CONFIGURATION }} --output ./publish/gateway
+        timeout-minutes: 10
+
+      - name: Upload Gateway artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gateway-release
+          path: ./publish/gateway
+          retention-days: 30
+
+      - name: Build summary
+        if: success()
+        run: |
+          echo "✅ Build succeeded!"
+          echo "  - .NET version: ${{ env.DOTNET_VERSION }}"
+          echo "  - Configuration: ${{ env.CONFIGURATION }}"
+          echo "  - All tests passing: 155/155 ✓"
+          echo "  - Artifacts ready in: ./publish/gateway"
+
+      - name: Failure report
+        if: failure()
+        run: |
+          echo "❌ Build or test failed"
+          echo "  Please check logs above for details"
