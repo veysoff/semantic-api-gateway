@@ -383,7 +383,7 @@ GET /api/audit?userId=test-user-123&from=2026-02-01&to=2026-02-05
 ## 🔒 Security Architecture
 
 ### Token Propagation Flow
-```
+
 Client JWT
   ↓
 Gateway (validates JWT via RequireAuthorization)
@@ -409,11 +409,9 @@ Downstream Service Endpoints (receives request with Authorization header)
 - **SemanticGuardrailService**: Validates intents, detects injection attempts, enforces RBAC
 - **Audit Logging**: All operations logged with user, intent, result, timestamp
 
----
-
+```
 ## 📁 Project Structure
 
-```
 semantic-api-gateway/
 │
 ├── SemanticApiGateway.AppHost/                    # ✅ .NET Aspire Host & Orchestration
