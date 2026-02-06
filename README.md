@@ -68,7 +68,7 @@ Users speak their intent in natural language; the Gateway translates it into orc
            │
     ┌──────┴──────┬──────────┬──────────┐
     ↓             ↓          ↓          ↓
-  UserService  OrderService InventoryService  (Port 5002-5004)
+  UserService  OrderService InventoryService  (Port 5300/5100/5200)
   ┌────────┐  ┌────────┐   ┌──────────────┐
   │ JWT ✓  │  │ JWT ✓  │   │ JWT ✓        │
   │ RBAC ✓ │  │ RBAC ✓ │   │ RBAC ✓       │
@@ -506,7 +506,7 @@ semantic-api-gateway/
 │   └── SemanticApiGateway.Gateway.csproj
 │
 ├── SemanticApiGateway.MockServices/               # ✅ Reference Mock Services
-│   ├── OrderService/                             # Port 5002
+│   ├── OrderService/                             # Port 5100
 │   │   ├── Program.cs
 │   │   ├── Endpoints/
 │   │   │   └── OrderEndpoints.cs                 # GET, POST, PUT, DELETE /api/orders
@@ -514,7 +514,7 @@ semantic-api-gateway/
 │   │   │   └── Order.cs
 │   │   └── OrderService.csproj
 │   │
-│   ├── UserService/                              # Port 5003
+│   ├── UserService/                              # Port 5300
 │   │   ├── Program.cs
 │   │   ├── Endpoints/
 │   │   │   └── UserEndpoints.cs                  # GET, POST, PUT, DELETE /api/users
@@ -522,7 +522,7 @@ semantic-api-gateway/
 │   │   │   └── User.cs
 │   │   └── UserService.csproj
 │   │
-│   └── InventoryService/                         # Port 5004
+│   └── InventoryService/                         # Port 5200
 │       ├── Program.cs
 │       ├── Endpoints/
 │       │   └── InventoryEndpoints.cs             # GET, POST, PUT /api/inventory
@@ -557,7 +557,7 @@ semantic-api-gateway/
 
 ### Quick Import (2 minutes)
 
-** Import File Directly**
+**Option 1: Import File Directly**
 1. Download: `SemanticApiGateway.postman_collection.json` (in project root)
 2. In Postman: **File** → **Import** → Select file
 3. Collection comes pre-configured with variables:
