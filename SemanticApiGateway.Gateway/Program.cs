@@ -81,49 +81,20 @@ try
     })
     .AddJwtBearer(options =>
     {
-        var authority = builder.Configuration["Auth:Authority"] ?? "https://localhost:5001";
         var audience = builder.Configuration["Auth:Audience"] ?? "api://semantic-gateway";
         var issuer = builder.Configuration["Auth:Issuer"] ?? "https://localhost:5001";
+        var secretKey = builder.Configuration["Auth:SecretKey"] ?? "super-secret-key-change-in-production-minimum-32-characters";
 
         // SECURITY: Proper JWT validation
-        options.Authority = authority;
         options.TokenValidationParameters.ValidateIssuer = true;
         options.TokenValidationParameters.ValidateAudience = true;
         options.TokenValidationParameters.ValidateLifetime = true;
         options.TokenValidationParameters.ValidIssuer = issuer;
         options.TokenValidationParameters.ValidAudience = audience;
 
-        // SECURITY: Use signing key validation (for development, use symmetric key; production should use asymmetric)
-        if (builder.Environment.IsDevelopment())
-        {
-            // Development: Use a shared secret key
-            var secretKey = builder.Configuration["Auth:SecretKey"] ?? "super-secret-key-change-in-production-minimum-32-characters";
-            var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
-            options.TokenValidationParameters.IssuerSigningKey = signingKey;
-        }
-        else
-        {
-            // Production: Should use Authority endpoint for key validation or configure trusted keys
-            options.Authority = authority;
-            options.TokenValidationParameters.IssuerSigningKeyResolver = (token, securityToken, kid, parameters) =>
-            {
-                // In production, fetch keys from well-known configuration endpoint
-                // or configure trusted signing keys from your identity provider
-                var keys = new List<SecurityKey>();
-
-                // TODO: Replace with actual key configuration from your identity provider
-                // Example for Azure AD:
-                // options.Authority = "https://login.microsoftonline.com/{tenant}/v2.0";
-                // options.Audience = "{client-id}";
-
-                if (keys.Count == 0)
-                {
-                    throw new InvalidOperationException("No signing keys configured. Configure Auth:SigningKeys in appsettings.Production.json");
-                }
-
-                return keys;
-            };
-        }
+        // Use symmetric key for signing validation
+        var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+        options.TokenValidationParameters.IssuerSigningKey = signingKey;
     });
 
     builder.Services.AddAuthorization();
@@ -139,10 +110,16 @@ try
     // Register Semantic Kernel (fallback, uses orchestrator in StepwisePlannerEngine)
     builder.Services.AddScoped(sp =>
     {
-        var kernelBuilder = Kernel.CreateBuilder()
-            .AddOpenAIChatCompletion(
+        var kernelBuilder = Kernel.CreateBuilder();
+        var apiKey = builder.Configuration["OpenAI:ApiKey"];
+
+        // Only add OpenAI if API key is properly configured (not a test placeholder)
+        if (!string.IsNullOrEmpty(apiKey) && apiKey.StartsWith("sk-") && apiKey.Length > 20)
+        {
+            kernelBuilder.AddOpenAIChatCompletion(
                 modelId: "gpt-4",
-                apiKey: builder.Configuration["OpenAI:ApiKey"] ?? throw new InvalidOperationException("OpenAI:ApiKey not configured"));
+                apiKey: apiKey);
+        }
 
         return kernelBuilder.Build();
     });

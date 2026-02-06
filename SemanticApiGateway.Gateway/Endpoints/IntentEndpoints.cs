@@ -15,7 +15,7 @@ public static class IntentEndpoints
     public static IEndpointRouteBuilder MapIntentEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup(prefix: "/api/intent")
-            .RequireAuthorization(policyNames: JwtBearerDefaults.AuthenticationScheme)
+            .RequireAuthorization()
             .WithTags(tags: "Intent");
 
         group.MapPost(pattern: "/execute", handler: ExecuteIntent)

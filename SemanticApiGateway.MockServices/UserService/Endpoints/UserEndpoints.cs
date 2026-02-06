@@ -1,6 +1,9 @@
 using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 using UserService.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 namespace UserService.Endpoints;
 
@@ -210,7 +213,7 @@ public static class UserEndpoints
         return Results.NoContent();
     }
 
-    private static IResult LoginUser(string id, ILogger<Program> logger)
+    private static IResult LoginUser(string id, ILogger<Program> logger, IConfiguration config)
     {
         var userData = Users.FirstOrDefault(u => u.Id == id);
         if (userData == null)
@@ -226,9 +229,35 @@ public static class UserEndpoints
 
         userData.LastLoginAt = DateTime.UtcNow;
 
+        var issuer = config["Auth:Issuer"] ?? "https://localhost:5001";
+        var audience = config["Auth:Audience"] ?? "api://semantic-gateway";
+        var secretKey = config["Auth:SecretKey"] ?? "super-secret-key-change-in-production-minimum-32-characters";
+
+        var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+        var credentials = new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256);
+
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, userData.Id),
+            new Claim(ClaimTypes.Email, userData.Email),
+            new Claim(ClaimTypes.GivenName, userData.FirstName),
+            new Claim(ClaimTypes.Surname, userData.LastName),
+            new Claim(ClaimTypes.Role, userData.Role)
+        };
+
+        var token = new JwtSecurityToken(
+            issuer: issuer,
+            audience: audience,
+            claims: claims,
+            expires: DateTime.UtcNow.AddHours(24),
+            signingCredentials: credentials
+        );
+
+        var jwtToken = new JwtSecurityTokenHandler().WriteToken(token);
+
         logger.LogInformation("User logged in: {UserId}", id);
 
-        return Results.Ok(new { message = "Login successful", user = userData });
+        return Results.Ok(new { token = jwtToken, message = "Login successful", user = userData });
     }
 
     private static IResult GetUserProfile(string id, ClaimsPrincipal user, ILogger<Program> logger)
