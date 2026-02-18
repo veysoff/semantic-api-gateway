@@ -603,3 +603,11 @@ Expected performance:
 MIT License - See LICENSE file
 
 ---
+
+## 🔄 CI/CD Pipeline Status
+
+The project includes automated CI/CD checks via GitHub Actions:
+- ✅ Build verification (.NET 10.0 compilation)
+- ✅ Test execution
+- ✅ Security validation
+- ✅ Code quality checks
