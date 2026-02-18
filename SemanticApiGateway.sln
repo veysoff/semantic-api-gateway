@@ -1,0 +1,62 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.34902.85
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SemanticApiGateway.AppHost", "SemanticApiGateway.AppHost\SemanticApiGateway.AppHost.csproj", "{A1B2C3D4-E5F6-47A8-9B0C-1D2E3F4A5B6C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SemanticApiGateway.ServiceDefaults", "SemanticApiGateway.ServiceDefaults\SemanticApiGateway.ServiceDefaults.csproj", "{B2C3D4E5-F6A7-48B9-0C1D-2E3F4A5B6C7D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SemanticApiGateway.Gateway", "SemanticApiGateway.Gateway\SemanticApiGateway.Gateway.csproj", "{C3D4E5F6-A7B8-49CA-1D2E-3F4A5B6C7D8E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SemanticApiGateway.Tests", "SemanticApiGateway.Tests\SemanticApiGateway.Tests.csproj", "{D4E5F6A7-B8C9-4ADB-2E3F-4A5B6C7D8E9F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "MockServices", "MockServices", "{E5F6A7B8-C9DA-4BEC-3F4A-5B6C7D8E9F0A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrderService", "SemanticApiGateway.MockServices\OrderService\OrderService.csproj", "{F6A7B8C9-DAE1-4CFD-4A5B-6C7D8E9F0A1B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InventoryService", "SemanticApiGateway.MockServices\InventoryService\InventoryService.csproj", "{A7B8C9DA-E1F2-4D0E-5B6C-7D8E9F0A1B2C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UserService", "SemanticApiGateway.MockServices\UserService\UserService.csproj", "{B8C9DAE1-F2A3-4E1F-6C7D-8E9F0A1B2C3D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A1B2C3D4-E5F6-47A8-9B0C-1D2E3F4A5B6C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-E5F6-47A8-9B0C-1D2E3F4A5B6C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-E5F6-47A8-9B0C-1D2E3F4A5B6C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-E5F6-47A8-9B0C-1D2E3F4A5B6C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B2C3D4E5-F6A7-48B9-0C1D-2E3F4A5B6C7D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2C3D4E5-F6A7-48B9-0C1D-2E3F4A5B6C7D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B2C3D4E5-F6A7-48B9-0C1D-2E3F4A5B6C7D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B2C3D4E5-F6A7-48B9-0C1D-2E3F4A5B6C7D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C3D4E5F6-A7B8-49CA-1D2E-3F4A5B6C7D8E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C3D4E5F6-A7B8-49CA-1D2E-3F4A5B6C7D8E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C3D4E5F6-A7B8-49CA-1D2E-3F4A5B6C7D8E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C3D4E5F6-A7B8-49CA-1D2E-3F4A5B6C7D8E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D4E5F6A7-B8C9-4ADB-2E3F-4A5B6C7D8E9F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D4E5F6A7-B8C9-4ADB-2E3F-4A5B6C7D8E9F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D4E5F6A7-B8C9-4ADB-2E3F-4A5B6C7D8E9F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D4E5F6A7-B8C9-4ADB-2E3F-4A5B6C7D8E9F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F6A7B8C9-DAE1-4CFD-4A5B-6C7D8E9F0A1B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F6A7B8C9-DAE1-4CFD-4A5B-6C7D8E9F0A1B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F6A7B8C9-DAE1-4CFD-4A5B-6C7D8E9F0A1B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F6A7B8C9-DAE1-4CFD-4A5B-6C7D8E9F0A1B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A7B8C9DA-E1F2-4D0E-5B6C-7D8E9F0A1B2C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A7B8C9DA-E1F2-4D0E-5B6C-7D8E9F0A1B2C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A7B8C9DA-E1F2-4D0E-5B6C-7D8E9F0A1B2C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A7B8C9DA-E1F2-4D0E-5B6C-7D8E9F0A1B2C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B8C9DAE1-F2A3-4E1F-6C7D-8E9F0A1B2C3D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8C9DAE1-F2A3-4E1F-6C7D-8E9F0A1B2C3D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B8C9DAE1-F2A3-4E1F-6C7D-8E9F0A1B2C3D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B8C9DAE1-F2A3-4E1F-6C7D-8E9F0A1B2C3D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{F6A7B8C9-DAE1-4CFD-4A5B-6C7D8E9F0A1B} = {E5F6A7B8-C9DA-4BEC-3F4A-5B6C7D8E9F0A}
+		{A7B8C9DA-E1F2-4D0E-5B6C-7D8E9F0A1B2C} = {E5F6A7B8-C9DA-4BEC-3F4A-5B6C7D8E9F0A}
+		{B8C9DAE1-F2A3-4E1F-6C7D-8E9F0A1B2C3D} = {E5F6A7B8-C9DA-4BEC-3F4A-5B6C7D8E9F0A}
+	EndGlobalSection
+EndGlobal

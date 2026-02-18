@@ -1,0 +1,841 @@
+{
+  "info": {
+    "name": "Semantic API Gateway - Complete API Testing",
+    "description": "Full functional testing suite for all microservices. All 155 tests passing. Use 127.0.0.1 (not localhost).",
+    "version": "2.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "gateway_url",
+      "value": "http://127.0.0.1:5000",
+      "type": "string"
+    },
+    {
+      "key": "user_service_url",
+      "value": "http://127.0.0.1:5300",
+      "type": "string"
+    },
+    {
+      "key": "order_service_url",
+      "value": "http://127.0.0.1:5100",
+      "type": "string"
+    },
+    {
+      "key": "inventory_service_url",
+      "value": "http://127.0.0.1:5200",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "user1",
+      "type": "string"
+    },
+    {
+      "key": "correlation_id",
+      "value": "{{$guid}}",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔑 Authentication & Setup",
+      "description": "Get JWT token and set up variables",
+      "item": [
+        {
+          "name": "1.1 Login as User (user1 - Regular User)",
+          "description": "POST /api/users/user1/login - Login as regular user. Saves JWT token to {{jwt_token}}. Use this for normal operations.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.globals.set('jwt_token', 'Bearer ' + jsonData.token);",
+                  "    pm.globals.set('user_role', 'User');",
+                  "    console.log('JWT Token for User saved');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{user_service_url}}/api/users/user1/login",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5300",
+              "path": ["api", "users", "user1", "login"]
+            }
+          }
+        },
+        {
+          "name": "1.2 Login as Admin (user2 - Admin User)",
+          "description": "POST /api/users/user2/login - Login as admin. Saves JWT token to {{jwt_token}}. Use this for admin operations (list users, create users, delete users, etc).",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.globals.set('jwt_token', 'Bearer ' + jsonData.token);",
+                  "    pm.globals.set('user_role', 'Admin');",
+                  "    console.log('JWT Token for Admin saved');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{user_service_url}}/api/users/user2/login",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5300",
+              "path": ["api", "users", "user2", "login"]
+            }
+          }
+        },
+        {
+          "name": "2. Health Check - Gateway",
+          "description": "GET /health - No auth required, verify Gateway is running",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{gateway_url}}/health",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5000",
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "3. Health Check - User Service",
+          "description": "GET /health - No auth required",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{user_service_url}}/health",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5300",
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "4. Health Check - Order Service",
+          "description": "GET /health - No auth required",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{order_service_url}}/health",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5100",
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "5. Health Check - Inventory Service",
+          "description": "GET /health - No auth required",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{inventory_service_url}}/health",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5200",
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 User Service (Port 5300)",
+      "description": "User management endpoints. IMPORTANT: Some endpoints require Admin role. Test users: user1 (User role), user2 (Admin role).",
+      "item": [
+        {
+          "name": "1. Get User by ID (user1)",
+          "description": "GET /api/users/:id - Get specific user. Requires JWT. Any user can get their own or other user info.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_service_url}}/api/users/user1",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5300",
+              "path": ["api", "users", "user1"]
+            }
+          }
+        },
+        {
+          "name": "2. Get User by ID (user2)",
+          "description": "GET /api/users/:id - Get admin user",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_service_url}}/api/users/user2",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5300",
+              "path": ["api", "users", "user2"]
+            }
+          }
+        },
+        {
+          "name": "3. List All Users (Admin Only)",
+          "description": "GET /api/users - List all users. ⚠️ REQUIRES Admin JWT token. First login as user2 (Admin) with '1.2 Login as Admin'.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_service_url}}/api/users",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5300",
+              "path": ["api", "users"]
+            }
+          }
+        },
+        {
+          "name": "4. Create New User (Admin Only)",
+          "description": "POST /api/users - Create new user. ⚠️ REQUIRES Admin JWT token. First login as user2 (Admin) with '1.2 Login as Admin'.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"User\",\n  \"email\": \"test@example.com\",\n  \"role\": \"User\"\n}"
+            },
+            "url": {
+              "raw": "{{user_service_url}}/api/users",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5300",
+              "path": ["api", "users"]
+            }
+          }
+        },
+        {
+          "name": "5. Update User",
+          "description": "PUT /api/users/:id - Update user profile. User can update own, Admin can update any.",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"John Updated\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john.updated@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{user_service_url}}/api/users/user1",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5300",
+              "path": ["api", "users", "user1"]
+            }
+          }
+        },
+        {
+          "name": "6. Delete User (Admin Only)",
+          "description": "DELETE /api/users/:id - Delete user. ⚠️ REQUIRES Admin JWT token. First login as user2 (Admin) with '1.2 Login as Admin'.",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_service_url}}/api/users/test-user-to-delete",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5300",
+              "path": ["api", "users", "test-user-to-delete"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📦 Order Service (Port 5100)",
+      "description": "Order management endpoints",
+      "item": [
+        {
+          "name": "1. Get Orders by User ID",
+          "description": "GET /api/orders/user/:userId - Get all orders for specific user",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{order_service_url}}/api/orders/user/user1",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5100",
+              "path": ["api", "orders", "user", "user1"]
+            }
+          }
+        },
+        {
+          "name": "2. Get Order by ID",
+          "description": "GET /api/orders/:id - Get specific order by ID (numeric)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{order_service_url}}/api/orders/1",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5100",
+              "path": ["api", "orders", "1"]
+            }
+          }
+        },
+        {
+          "name": "3. Create New Order",
+          "description": "POST /api/orders - Create new order. Required fields: userId, items[].productId, items[].quantity, items[].unitPrice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"user1\",\n  \"items\": [\n    {\n      \"productId\": \"laptop-001\",\n      \"quantity\": 1,\n      \"unitPrice\": 1299.99\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{order_service_url}}/api/orders",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5100",
+              "path": ["api", "orders"]
+            }
+          }
+        },
+        {
+          "name": "4. Update Order",
+          "description": "PUT /api/orders/:id - Update order by ID. Same structure as CreateOrderRequest.",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"user1\",\n  \"items\": [\n    {\n      \"productId\": \"laptop-001\",\n      \"quantity\": 2,\n      \"unitPrice\": 1299.99\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{order_service_url}}/api/orders/1",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5100",
+              "path": ["api", "orders", "1"]
+            }
+          }
+        },
+        {
+          "name": "5. Delete Order",
+          "description": "DELETE /api/orders/:id - Delete order by ID (numeric)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{order_service_url}}/api/orders/1",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5100",
+              "path": ["api", "orders", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 Inventory Service (Port 5200)",
+      "description": "Inventory management endpoints. All endpoints require JWT authorization. Seeded items: PROD-001 (Widget A, 100 avail), PROD-002 (Widget B, 50 avail), PROD-003 (Widget C, 0 avail - OutOfStock)",
+      "item": [
+        {
+          "name": "1. Get All Inventory Items",
+          "description": "GET /api/inventory - Get all inventory items. Requires JWT.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{inventory_service_url}}/api/inventory",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5200",
+              "path": ["api", "inventory"]
+            }
+          }
+        },
+        {
+          "name": "2. Get Inventory by Product ID",
+          "description": "GET /api/inventory/:productId - Get specific inventory item by productId (e.g., PROD-001). Requires JWT.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{inventory_service_url}}/api/inventory/PROD-001",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5200",
+              "path": ["api", "inventory", "PROD-001"]
+            }
+          }
+        },
+        {
+          "name": "3. Reserve Inventory",
+          "description": "POST /api/inventory/:productId/reserve - Reserve quantity for an order. Requires JWT. Body: productId, quantity, orderId. Returns error if insufficient stock.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"PROD-001\",\n  \"quantity\": 5,\n  \"orderId\": \"order-123\"\n}"
+            },
+            "url": {
+              "raw": "{{inventory_service_url}}/api/inventory/PROD-001/reserve",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5200",
+              "path": ["api", "inventory", "PROD-001", "reserve"]
+            }
+          }
+        },
+        {
+          "name": "4. Release Inventory (Unreserve)",
+          "description": "POST /api/inventory/:productId/release - Release (unreserve) previously reserved quantity. Requires JWT. Body: quantityChange (positive number), reason (string). Returns error if releasing more than reserved.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantityChange\": 5,\n  \"reason\": \"Order cancelled\"\n}"
+            },
+            "url": {
+              "raw": "{{inventory_service_url}}/api/inventory/PROD-001/release",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5200",
+              "path": ["api", "inventory", "PROD-001", "release"]
+            }
+          }
+        },
+        {
+          "name": "5. Update Inventory",
+          "description": "PUT /api/inventory/:productId - Update inventory quantity. Requires JWT. Body: quantityChange (can be positive or negative), reason (string). Updates QuantityAvailable directly.",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantityChange\": 10,\n  \"reason\": \"Stock adjustment\"\n}"
+            },
+            "url": {
+              "raw": "{{inventory_service_url}}/api/inventory/PROD-001",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5200",
+              "path": ["api", "inventory", "PROD-001"]
+            }
+          }
+        },
+        {
+          "name": "6. Check Stock Availability",
+          "description": "GET /api/inventory/check-stock/:productId/:quantity - Check if quantity is available in stock. Requires JWT. Example: /api/inventory/check-stock/PROD-001/10",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{inventory_service_url}}/api/inventory/check-stock/PROD-001/10",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5200",
+              "path": ["api", "inventory", "check-stock", "PROD-001", "10"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🧠 Gateway - Intent Execution (Port 5000)",
+      "description": "Natural language intent execution with semantic planning and orchestration",
+      "item": [
+        {
+          "name": "1. Execute Intent - List Users (FIRST CALL - Plan Generated)",
+          "description": "POST /api/intent/execute - First call generates plan. Expect 400-600ms. REQUIRES JWT.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlation_id}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"intent\": \"List all users\",\n  \"userId\": \"{{user_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/intent/execute",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5000",
+              "path": ["api", "intent", "execute"]
+            }
+          }
+        },
+        {
+          "name": "2. Execute Intent - List Users (CACHED CALL - 90% FASTER)",
+          "description": "POST /api/intent/execute - Same intent as above. Expect 50-150ms due to caching.",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              },
+              {
+                "key": "X-Correlation-Id",
+                "value": "{{correlation_id}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"intent\": \"List all users\",\n  \"userId\": \"{{user_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/intent/execute",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5000",
+              "path": ["api", "intent", "execute"]
+            }
+          }
+        },
+        {
+          "name": "3. Stream Intent Execution (Server-Sent Events)",
+          "description": "GET /api/intent/stream/:intent - Real-time progress streaming via SSE. Shows step-by-step execution.",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "text/event-stream",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{gateway_url}}/api/intent/stream/List%20all%20users?userId={{user_id}}",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5000",
+              "path": ["api", "intent", "stream", "List all users"],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": "{{user_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "4. Plan Intent Execution",
+          "description": "POST /api/intent/plan - Generate execution plan without running it",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"intent\": \"Create order for user1\",\n  \"userId\": \"{{user_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{gateway_url}}/api/intent/plan",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5000",
+              "path": ["api", "intent", "plan"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "⚠️ Error Cases & Edge Cases",
+      "description": "Test error handling",
+      "item": [
+        {
+          "name": "1. 404 - Non-existent User",
+          "description": "GET /api/users/:id - Should return 404 for invalid user ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{user_service_url}}/api/users/invalid-user-xyz",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5300",
+              "path": ["api", "users", "invalid-user-xyz"]
+            }
+          }
+        },
+        {
+          "name": "2. 401 - Missing JWT Token",
+          "description": "GET /api/users/:id - Should return 401 when JWT is missing",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{user_service_url}}/api/users/user1",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5300",
+              "path": ["api", "users", "user1"]
+            }
+          }
+        },
+        {
+          "name": "3. 400 - Invalid Request Body",
+          "description": "POST /api/orders - Should return 400 for missing required fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productName\": \"Test\"\n}"
+            },
+            "url": {
+              "raw": "{{order_service_url}}/api/orders",
+              "protocol": "http",
+              "host": ["127.0.0.1"],
+              "port": "5100",
+              "path": ["api", "orders"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
