@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
@@ -44,13 +46,33 @@ public class StepwisePlannerEngineIntegrationTests
         var mockCacheLogger = new Mock<ILogger<InMemoryCacheService>>();
         var cacheService = new InMemoryCacheService(mockCacheLogger.Object);
 
+        var mockHttpClientFactory = new Mock<IHttpClientFactory>();
+        mockHttpClientFactory
+            .Setup(f => f.CreateClient(It.IsAny<string>()))
+            .Returns(new HttpClient());
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ServiceDiscovery:UserServiceUrl"] = "http://localhost:5300",
+                ["ServiceDiscovery:OrderServiceUrl"] = "http://localhost:5100",
+                ["ServiceDiscovery:InventoryServiceUrl"] = "http://localhost:5200"
+            })
+            .Build();
+
+        var mockHttpContextAccessor = new Mock<IHttpContextAccessor>();
+        mockHttpContextAccessor.Setup(a => a.HttpContext).Returns((HttpContext?)null);
+
         _engine = new StepwisePlannerEngine(
             kernel,
             _mockLogger.Object,
             variableResolver,
             options,
             _mockActivitySource.Object,
-            cacheService
+            cacheService,
+            mockHttpClientFactory.Object,
+            configuration,
+            mockHttpContextAccessor.Object
         );
     }
 

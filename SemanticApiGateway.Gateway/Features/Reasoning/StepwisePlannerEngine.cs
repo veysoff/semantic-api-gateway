@@ -1,3 +1,7 @@
+using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 using Polly;
@@ -22,6 +26,9 @@ public class StepwisePlannerEngine : IReasoningEngine
     private readonly ResilienceConfiguration _resilienceConfig;
     private readonly IGatewayActivitySource _activitySource;
     private readonly ICacheService _cacheService;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ServiceDiscoveryOptions _serviceDiscovery;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private const string PlanCachePrefix = "plan:";
     private const string ResultCachePrefix = "result:";
 
@@ -31,7 +38,10 @@ public class StepwisePlannerEngine : IReasoningEngine
         VariableResolver variableResolver,
         IOptions<ResilienceConfiguration> resilienceOptions,
         IGatewayActivitySource activitySource,
-        ICacheService cacheService)
+        ICacheService cacheService,
+        IHttpClientFactory httpClientFactory,
+        IConfiguration configuration,
+        IHttpContextAccessor httpContextAccessor)
     {
         _kernel = kernel ?? throw new ArgumentNullException(nameof(kernel));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -39,6 +49,10 @@ public class StepwisePlannerEngine : IReasoningEngine
         _resilienceConfig = resilienceOptions?.Value ?? throw new ArgumentNullException(nameof(resilienceOptions));
         _activitySource = activitySource ?? throw new ArgumentNullException(nameof(activitySource));
         _cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
+        _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
+        _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor));
+        _serviceDiscovery = configuration.GetSection("ServiceDiscovery").Get<ServiceDiscoveryOptions>()
+            ?? new ServiceDiscoveryOptions();
 
         // Configure resilience policy for the overall execution
         _executionPolicy = Policy<ExecutionResult>
@@ -70,11 +84,13 @@ public class StepwisePlannerEngine : IReasoningEngine
 
             // Generate execution plan
             var plan = await PlanIntentAsync(intent, userId, cancellationToken);
+            var rawAuth = _httpContextAccessor.HttpContext?.Request.Headers["Authorization"].FirstOrDefault();
             var executionContext = new ExecutionContext
             {
                 UserId = userId,
                 Intent = intent,
-                StepResults = new List<StepResult>()
+                StepResults = new List<StepResult>(),
+                JwtToken = rawAuth
             };
 
             // Execute steps sequentially with data piping
@@ -154,7 +170,7 @@ public class StepwisePlannerEngine : IReasoningEngine
                     resolvedValue: "parameters"
                 );
 
-                var stepResult = await ExecuteStepAsync(step, resolvedParameters, cancellationToken);
+                var stepResult = await ExecuteStepAsync(step, resolvedParameters, executionContext.JwtToken, cancellationToken);
                 results.Add(stepResult);
 
                 // Record step metrics to activity
@@ -220,6 +236,7 @@ public class StepwisePlannerEngine : IReasoningEngine
     private async Task<StepResult> ExecuteStepAsync(
         ExecutionStep step,
         Dictionary<string, object> resolvedParameters,
+        string? jwtToken,
         CancellationToken cancellationToken)
     {
         var stepStartTime = DateTime.UtcNow;
@@ -229,19 +246,18 @@ public class StepwisePlannerEngine : IReasoningEngine
         {
             var result = await retryPolicy.ExecuteAsync(async () =>
             {
-                // TODO: Implement actual microservice invocation
-                // For now, return placeholder success
-                await Task.Delay(100, cancellationToken);
-
+                var serviceResult = await InvokeServiceAsync(step, resolvedParameters, jwtToken, cancellationToken);
                 return new StepResult
                 {
                     Order = step.Order,
                     ServiceName = step.ServiceName,
                     FunctionName = step.FunctionName,
-                    Success = true,
-                    Result = new { message = $"Placeholder result from {step.FunctionName}" },
+                    Success = serviceResult.Success,
+                    Result = serviceResult.Data,
+                    ErrorMessage = serviceResult.ErrorMessage,
+                    HttpStatusCode = serviceResult.StatusCode,
                     Duration = DateTime.UtcNow - stepStartTime,
-                    ErrorCategory = ErrorCategory.Unknown
+                    ErrorCategory = serviceResult.Success ? ErrorCategory.Unknown : CategorizeError(serviceResult.ErrorMessage)
                 };
             });
 
@@ -424,45 +440,23 @@ public class StepwisePlannerEngine : IReasoningEngine
         if (string.IsNullOrWhiteSpace(userId))
             throw new ArgumentNullException(nameof(userId));
 
-        var cacheKey = $"{PlanCachePrefix}{intent.GetHashCode():X}";
+        var cacheKey = $"{PlanCachePrefix}{intent.ToLowerInvariant().GetHashCode():X}";
 
         try
         {
-            // Check cache first
             var cachedPlan = await _cacheService.GetAsync<ExecutionPlan>(cacheKey, cancellationToken);
             if (cachedPlan != null)
             {
-                _logger.LogDebug("Using cached execution plan for intent: {Intent}", intent);
+                _logger.LogInformation("Cache HIT - returning cached plan for intent: {Intent}", intent);
                 return cachedPlan;
             }
 
-            _logger.LogInformation("Creating execution plan for intent: {Intent}", intent);
+            _logger.LogInformation("Cache MISS - generating execution plan for intent: {Intent}", intent);
 
-            // TODO: Implement plan generation
-            // Use Semantic Kernel to understand the intent and map to microservice functions
+            var plan = GeneratePlanForIntent(intent, userId);
 
-            var plan = new ExecutionPlan
-            {
-                Intent = intent,
-                Steps = new List<ExecutionStep>
-                {
-                    // Placeholder step
-                    new ExecutionStep
-                    {
-                        Order = 1,
-                        ServiceName = "UserService",
-                        FunctionName = "GetUser",
-                        Description = "Retrieve user information",
-                        Parameters = new Dictionary<string, object>
-                        {
-                            { "userId", userId }
-                        }
-                    }
-                }
-            };
-
-            // Cache the plan for 1 hour
             await _cacheService.SetAsync(cacheKey, plan, TimeSpan.FromHours(1), cancellationToken);
+            _logger.LogInformation("Plan cached for 1 hour. Steps: {StepCount}", plan.Steps.Count);
 
             return plan;
         }
@@ -471,5 +465,280 @@ public class StepwisePlannerEngine : IReasoningEngine
             _logger.LogError(ex, "Failed to create execution plan for intent: {Intent}", intent);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Maps natural language intent to a concrete execution plan.
+    /// Uses keyword matching to route to appropriate microservice sequences.
+    /// </summary>
+    private ExecutionPlan GeneratePlanForIntent(string intent, string userId)
+    {
+        var lower = intent.ToLowerInvariant();
+
+        // Scenario A: Create order → 3-step plan: GetUser → CheckInventory → CreateOrder
+        if (lower.Contains("create order") || lower.Contains("place order") || lower.Contains("order for"))
+        {
+            _logger.LogInformation("Planning: CreateOrder workflow (3 steps)");
+            return new ExecutionPlan
+            {
+                Intent = intent,
+                Steps = new List<ExecutionStep>
+                {
+                    new ExecutionStep
+                    {
+                        Order = 1,
+                        ServiceName = "UserService",
+                        FunctionName = "GetUser",
+                        Description = "Retrieve user information and validate identity",
+                        Parameters = new Dictionary<string, object> { { "userId", userId } }
+                    },
+                    new ExecutionStep
+                    {
+                        Order = 2,
+                        ServiceName = "InventoryService",
+                        FunctionName = "CheckInventory",
+                        Description = "Check product availability in inventory",
+                        Parameters = new Dictionary<string, object> { { "productId", "laptop" }, { "quantity", 5 } }
+                    },
+                    new ExecutionStep
+                    {
+                        Order = 3,
+                        ServiceName = "OrderService",
+                        FunctionName = "CreateOrder",
+                        Description = "Create the order using resolved user ID",
+                        Parameters = new Dictionary<string, object>
+                        {
+                            { "userId", "${step1.id}" },
+                            { "productId", "laptop" },
+                            { "quantity", 5 }
+                        }
+                    }
+                }
+            };
+        }
+
+        // List orders
+        if (lower.Contains("list order") || lower.Contains("get order") || lower.Contains("my order") || lower.Contains("show order"))
+        {
+            _logger.LogInformation("Planning: ListOrders workflow (2 steps)");
+            return new ExecutionPlan
+            {
+                Intent = intent,
+                Steps = new List<ExecutionStep>
+                {
+                    new ExecutionStep
+                    {
+                        Order = 1,
+                        ServiceName = "UserService",
+                        FunctionName = "GetUser",
+                        Description = "Retrieve user information",
+                        Parameters = new Dictionary<string, object> { { "userId", userId } }
+                    },
+                    new ExecutionStep
+                    {
+                        Order = 2,
+                        ServiceName = "OrderService",
+                        FunctionName = "GetUserOrders",
+                        Description = "Fetch all orders for this user",
+                        Parameters = new Dictionary<string, object> { { "userId", "${step1.id}" } }
+                    }
+                }
+            };
+        }
+
+        // List users
+        if (lower.Contains("list user") || lower.Contains("all user") || lower.Contains("get user") || lower.Contains("show user"))
+        {
+            _logger.LogInformation("Planning: GetUser workflow (1 step)");
+            return new ExecutionPlan
+            {
+                Intent = intent,
+                Steps = new List<ExecutionStep>
+                {
+                    new ExecutionStep
+                    {
+                        Order = 1,
+                        ServiceName = "UserService",
+                        FunctionName = "GetUser",
+                        Description = "Retrieve user profile",
+                        Parameters = new Dictionary<string, object> { { "userId", userId } }
+                    }
+                }
+            };
+        }
+
+        // Check inventory
+        if (lower.Contains("inventory") || lower.Contains("stock") || lower.Contains("available"))
+        {
+            _logger.LogInformation("Planning: CheckInventory workflow (1 step)");
+            return new ExecutionPlan
+            {
+                Intent = intent,
+                Steps = new List<ExecutionStep>
+                {
+                    new ExecutionStep
+                    {
+                        Order = 1,
+                        ServiceName = "InventoryService",
+                        FunctionName = "GetInventory",
+                        Description = "Check current inventory levels",
+                        Parameters = new Dictionary<string, object>()
+                    }
+                }
+            };
+        }
+
+        // Default: get user profile
+        _logger.LogInformation("Planning: default GetUser workflow for unrecognized intent");
+        return new ExecutionPlan
+        {
+            Intent = intent,
+            Steps = new List<ExecutionStep>
+            {
+                new ExecutionStep
+                {
+                    Order = 1,
+                    ServiceName = "UserService",
+                    FunctionName = "GetUser",
+                    Description = "Retrieve user information",
+                    Parameters = new Dictionary<string, object> { { "userId", userId } }
+                }
+            }
+        };
+    }
+
+    /// <summary>
+    /// Invokes the appropriate microservice endpoint for a given step.
+    /// Resolves service URL from ServiceDiscovery config and routes by FunctionName.
+    /// </summary>
+    private async Task<ServiceCallResult> InvokeServiceAsync(
+        ExecutionStep step,
+        Dictionary<string, object> parameters,
+        string? jwtToken,
+        CancellationToken cancellationToken)
+    {
+        var client = _httpClientFactory.CreateClient("resilient");
+        var baseUrl = GetServiceBaseUrl(step.ServiceName);
+
+        _logger.LogInformation(
+            "Step {Order}: Calling {ServiceName}.{FunctionName} at {BaseUrl}",
+            step.Order, step.ServiceName, step.FunctionName, baseUrl);
+
+        try
+        {
+            HttpResponseMessage response = await SendRequestAsync(
+                client, step, parameters, baseUrl, jwtToken, cancellationToken);
+
+            var statusCode = (int)response.StatusCode;
+
+            if (response.IsSuccessStatusCode)
+            {
+                var data = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: cancellationToken);
+                _logger.LogInformation(
+                    "Step {Order} ({FunctionName}) succeeded: HTTP {StatusCode}",
+                    step.Order, step.FunctionName, statusCode);
+                return new ServiceCallResult { Success = true, Data = data, StatusCode = statusCode };
+            }
+
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogWarning(
+                "Step {Order} ({FunctionName}) failed: HTTP {StatusCode} - {Error}",
+                step.Order, step.FunctionName, statusCode, errorBody);
+
+            return new ServiceCallResult
+            {
+                Success = false,
+                ErrorMessage = $"HTTP {statusCode}: {errorBody}",
+                StatusCode = statusCode
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Step {Order} ({FunctionName}) threw exception", step.Order, step.FunctionName);
+            return new ServiceCallResult { Success = false, ErrorMessage = ex.Message };
+        }
+    }
+
+    private async Task<HttpResponseMessage> SendRequestAsync(
+        HttpClient client,
+        ExecutionStep step,
+        Dictionary<string, object> parameters,
+        string baseUrl,
+        string? jwtToken,
+        CancellationToken cancellationToken)
+    {
+        HttpRequestMessage BuildRequest(HttpMethod method, string url, HttpContent? content = null)
+        {
+            var req = new HttpRequestMessage(method, url);
+            if (!string.IsNullOrEmpty(jwtToken))
+                req.Headers.TryAddWithoutValidation("Authorization", jwtToken);
+            req.Content = content;
+            return req;
+        }
+
+        return step.FunctionName switch
+        {
+            "GetUser" => await client.SendAsync(
+                BuildRequest(HttpMethod.Get, $"{baseUrl}/api/users/{parameters.GetValueOrDefault("userId")}"),
+                cancellationToken),
+
+            "GetUserOrders" => await client.SendAsync(
+                BuildRequest(HttpMethod.Get, $"{baseUrl}/api/orders/user/{parameters.GetValueOrDefault("userId")}"),
+                cancellationToken),
+
+            "CheckInventory" => await client.SendAsync(
+                BuildRequest(HttpMethod.Get,
+                    $"{baseUrl}/api/inventory/check-stock/{parameters.GetValueOrDefault("productId")}/{ToInt(parameters.GetValueOrDefault("quantity") ?? 1)}"),
+                cancellationToken),
+
+            "GetInventory" => await client.SendAsync(
+                BuildRequest(HttpMethod.Get, $"{baseUrl}/api/inventory"),
+                cancellationToken),
+
+            "CreateOrder" => await client.SendAsync(
+                BuildRequest(
+                    HttpMethod.Post,
+                    $"{baseUrl}/api/orders",
+                    JsonContent.Create(new
+                    {
+                        userId = parameters.GetValueOrDefault("userId")?.ToString(),
+                        items = new[]
+                        {
+                            new
+                            {
+                                productId = parameters.GetValueOrDefault("productId")?.ToString() ?? "laptop",
+                                quantity = ToInt(parameters.GetValueOrDefault("quantity") ?? 1),
+                                unitPrice = 999.99m
+                            }
+                        }
+                    })),
+                cancellationToken),
+
+            _ => throw new InvalidOperationException($"Unknown function: {step.FunctionName}")
+        };
+    }
+
+    private static int ToInt(object value) => value switch
+    {
+        int i => i,
+        long l => (int)l,
+        JsonElement je when je.ValueKind == JsonValueKind.Number => je.GetInt32(),
+        _ => int.TryParse(value?.ToString(), out var n) ? n : 1
+    };
+
+    private string GetServiceBaseUrl(string serviceName) => serviceName switch
+    {
+        "UserService" => _serviceDiscovery.UserServiceUrl,
+        "OrderService" => _serviceDiscovery.OrderServiceUrl,
+        "InventoryService" => _serviceDiscovery.InventoryServiceUrl,
+        _ => throw new InvalidOperationException($"Unknown service: {serviceName}")
+    };
+
+    private record ServiceCallResult
+    {
+        public bool Success { get; init; }
+        public object? Data { get; init; }
+        public string? ErrorMessage { get; init; }
+        public int StatusCode { get; init; }
     }
 }

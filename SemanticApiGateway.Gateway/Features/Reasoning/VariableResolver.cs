@@ -226,4 +226,5 @@ public class ExecutionContext
     public string Intent { get; set; } = string.Empty;
     public List<StepResult> StepResults { get; set; } = new();
     public Dictionary<string, object> Variables { get; set; } = new();
+    public string? JwtToken { get; set; }
 }
